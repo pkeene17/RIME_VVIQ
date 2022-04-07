@@ -96,11 +96,12 @@ ret_labels <- function(conID)
 nsubj <- 5
 ntrialsR <- 192
 ntrialsPT <- 288
+numquestions <- 16
 retrievaldf <- data.frame()
 posttestdf <- data.frame()
+VVIQdf <- data.frame()
 print(paste("nsubj =",as.character(nsubj)))
 ```
-## load data for each subject into two dataframes
 ```{r load data, echo=FALSE}
 ### loading data ###
 workingDir <- here("~/Desktop/RIME_VVIQ")
@@ -128,6 +129,14 @@ for (isubj in seq(from=1, to=nsubj))
   posttestmat <- mutate(posttestmat,subjID=as.factor(rep(isubj,ntrialsPT)))
   retrievaldf <- rbind(retrievaldf,retrievalmat)
   posttestdf <- rbind(posttestdf,posttestmat)
+  
+  ##VVIQ stuff
+  VVIQdat <- read.table(file=
+                paste(subjDir,"/VVIQ/sub",subjStr,"_VVIQ_resp.csv",sep=""),
+                sep=",",header=TRUE,skip=5)
+  VVIQdat$question <- NULL
+  VVIQdat <- mutate(VVIQdat,subjID=as.factor(rep(isubj,numquestions)))
+  VVIQdf <- rbind(VVIQdf,VVIQdat)
 }
 ```
 
@@ -139,24 +148,44 @@ for (isubj in seq(from=1, to=nsubj))
 ggplot(retrievaldf,aes(x=response)) + geom_histogram(color='black',fill='blue',bins=5) + xlab('vividness rating') + ggtitle("Distribution of Vividness Ratings")
 #group by face object and scene images
 retrievaldf %>% group_by(stimulus) %>% summarise_at(vars(response),list(mean_rating=mean)) %>%
-  ggplot(aes(x=stimulus,y=mean_rating)) + geom_bar(stat="identity") + ggtitle("Mean Rating by Stimulus Type")
+  ggplot(aes(x=stimulus,y=mean_rating)) + geom_bar(stat="identity") + 
+  ggtitle("Mean Vividness Rating by Stimulus Type")
 ```
+
 ## Post Test plots
+
 ```{r post test, echo=FALSE}
 ## look at acc on post test
 posttestdf %>% group_by(subjID) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
-  ggplot(aes(x=subjID,y=mean_acc)) + geom_point() + ggtitle("Mean Accuracy for each Subject")
+  ggplot(aes(x=subjID,y=mean_acc)) + geom_point() + 
+  ggtitle("Mean Post test Accuracy for each Subject")
 ## look at acc on post test split by stimulus type
 posttestdf %>% group_by(stimulus) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
-  ggplot(aes(x=stimulus,y=mean_acc)) + geom_bar(stat="identity") + ggtitle("Mean Accuracy by Stimulus Type")
+  ggplot(aes(x=stimulus,y=mean_acc)) + geom_bar(stat="identity") + 
+  ggtitle("Mean Post Test Accuracy by Stimulus Type")
 ## look at acc on post test split by condition
 posttestdf %>% group_by(condLabels) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
-  ggplot(aes(x=condLabels,y=mean_acc)) + geom_bar(stat="identity") + ggtitle("Mean Accuracy by Memory Condition")
+  ggplot(aes(x=condLabels,y=mean_acc)) + geom_bar(stat="identity") + 
+  ggtitle("Mean Post Test Accuracy by Memory Condition")
 ## look at acc on post test split by retrieval condition
 posttestdf %>% group_by(retLabels) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
-  ggplot(aes(x=retLabels,y=mean_acc)) + geom_bar(stat="identity") + ggtitle("Mean Accuracy by Retrieval Status")
+  ggplot(aes(x=retLabels,y=mean_acc)) + geom_bar(stat="identity") + 
+  ggtitle("Mean Post Test Accuracy by Retrieval Status")
 
 ## look at confidence on post test
 posttestdf %>% count(respLabels) %>%
-  ggplot(aes(x=respLabels,y=n)) + geom_bar(stat="identity") + ggtitle("Distribution of Confidence Ratings")
+  ggplot(aes(x=respLabels,y=n)) + geom_bar(stat="identity") + ggtitle("Distribution of Post Test Confidence Ratings")
 ```
+
+## Questionaire Data
+
+```{r questionaire, echo=FALSE}
+## look at mean VVIQ responses
+VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(mean=mean)) %>%
+  ggplot(aes(x=subjID,y=mean)) + geom_point() + 
+  ggtitle("Mean Vividness Questionaire Ratings by Subject")
+```
+
+
+
+
