@@ -1,0 +1,6 @@
+# exclude irrelevant files
+*.DS_STORE
+./Data
+./LIST_old
+./fMRI_exp_old
+Plate*
