@@ -53,10 +53,24 @@ ptData.acc = ptmat.theData.PT.Accuracy';
 ptData.sureCR = ptmat.theData.PT.sureCR';
 ptData.unsureCR = ptmat.theData.PT.unsureCR';
 ptData.sureHits = ptmat.theData.PT.sureHits';
-ptData.sureHits = ptmat.theData.PT.sureHits';
+for i = 1:288
+    tmp = ptmat.theData.PT.conID{i}(3);
+    if tmp=="I"
+        ret = 1; %old
+    elseif tmp=="D"
+        ret = 2; %foil
+    else
+        ret = 3; %new
+    end
+    ptData.conditionID(i)=ret;
+end
+ptData.sureFA = (ptmat.theData.PT.Choice==4 & ptData.conditionID~=1)';
+ptData.FA = ((ptmat.theData.PT.Choice==4 | ptmat.theData.PT.Choice==3) & ptData.conditionID~=1)';
+ptData.conditionID=ptData.conditionID';
+% ptData.dprimeSure = norminv(sum(ptData.sureHits)/sum(ptmat.theData.PT.conID(3)=="I"),0,1) - norminv(sum(ptData.sureFA)/sum(ptmat.theData.PT.conID(3)~="I"),0,1);
+% ptData.dprime = norminv(sum(ptData.hits)/sum(ptmat.theData.PT.conID(3)=="I"),0,1) - norminv(sum(ptData.FA)/sum(ptmat.theData.PT.conID(3)~="I"),0,1);
 
 mkdir([wd,subjID,'/analysisFiles/'])
 save([wd,subjID,'/analysisFiles/ptData.mat'],'-struct','ptData')
 save([wd,subjID,'/analysisFiles/retData.mat'],'-struct','retData')
 save([wd,subjID,'/analysisFiles/studyData.mat'],'-struct','studyData')
-

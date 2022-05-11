@@ -17,6 +17,7 @@ library(R.matlab)
 library(reticulate)
 library(ggpubr)
 library(rstatix)
+library(qapi)
 ```
 ```{r helpers, echo=FALSE}
 #define some helpers
@@ -63,8 +64,31 @@ resp_labelsPT <- function(resp)
   return(ret)
 }
 
+#confidence rating
+confidence_rating <- function(resp)
+{
+  ret <- 0
+  if(resp==0){
+    ret <- 0
+  }
+  if(resp==1){
+    ret <- 1
+  }
+  if(resp==2){
+    ret <- 0
+  }
+  if(resp==3){
+    ret <- 0
+  }
+  if(resp==4){
+    ret <- 1
+  }
+  return(ret)
+}
+
 #label the repetition status of an image
 #I'm sorry but I need to rant about this; WHY are the condition IDs A) not saved in their own coulmn, B) stored in DIFFEERENT PARTS OF THIS STRING. WHO DID THIS
+##### fixed in preprocessing, this function is no longer relevant
 cond_labels <- function(conID)
 {
   ret <- 0
@@ -91,9 +115,25 @@ ret_labels <- function(conID)
   }
   return(ret)
 }
+
+#add vividness labels to posttestdf
+#I'm aware this isnt tidy but this dataset was not built for tidyverse so
+vivid_labels <- function(posttestdf,retrievaldf)
+{
+  posttestdf <- mutate(posttestdf,vividnessLabel=rep(0,length(posttestdf$conID)))
+  for(i in seq(from=1,to=length(retrievaldf$conID)))
+  {
+    targetID <- retrievaldf$conID[i]
+    targetTrials <- which(posttestdf$conID==targetID)
+    posttestdf$vividnessLabel[posttestdf$conID==retrievaldf$conID[i]] =
+      retrievaldf$respLabels[i]
+  }
+  return(posttestdf)
+}
+
 ```
 ```{r constants, echo=FALSE}
-nsubj <- 5
+nsubj <- 17
 ntrialsR <- 192
 ntrialsPT <- 288
 numquestions <- 16
@@ -140,7 +180,7 @@ for (isubj in seq(from=1, to=nsubj))
 }
 ```
 
-## Plots
+## Summary Data - are participants able to do the task?
 
 ## Vividness Rating plots
 ```{r vividness, echo=FALSE}
@@ -171,6 +211,28 @@ posttestdf %>% group_by(condLabels) %>% summarise_at(vars(acc),list(mean_acc=mea
 posttestdf %>% group_by(retLabels) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
   ggplot(aes(x=retLabels,y=mean_acc)) + geom_bar(stat="identity") + 
   ggtitle("Mean Post Test Accuracy by Retrieval Status")
+## lets get dprime
+
+'%!in%' <- Negate('%in%')
+dprimedf <- data.frame(matrix(ncol=3))
+colnames(dprimedf) <- c('subjID','hr','fa')
+#this dataset was not built for R so I'm doing it with python syntax
+for(isubj in seq(from=1,to=nsubj))
+{
+  hr <- sum(posttestdf$sureHits[posttestdf$subjID==isubj])/sum(posttestdf$condLabels[posttestdf$subjID==isubj]=="Old")
+  fa <- sum(posttestdf$sureFA[posttestdf$subjID==isubj])/sum(posttestdf$condLabels[posttestdf$subjID==isubj]!="Old")
+  dprimedf <- rbind(dprimedf,c(isubj,hr,fa))
+}
+dprimedf <- dprimedf[1:nsubj+1,] #artifact of not being tidy
+#dprimedf <- dprimedf[dprimedf$subjID %!in% exclude_subj,]
+meanHR<-mean(dprimedf$hr)
+meanFA<-mean(dprimedf$fa)
+sdHR<-sd(dprimedf$hr)
+sdFA<-sd(dprimedf$fa)
+dprimedf <- mutate(dprimedf,dprime=norminv(dprimedf$hr,0,1)-norminv(dprimedf$fa,0,1))
+#inspect dprime for all subjects to see if there's anyone we should exclude
+dprimedf %>% ggplot(aes(x=subjID,y=dprime)) + geom_point() + ggtitle(paste("d' for all subjects: mean = ",as.character(mean(dprimedf$dprime))))
+exclude_subj <- c(6,10) #exclude people who were clearly not trying (FA>=HR/dprime<=0)
 
 ## look at confidence on post test
 posttestdf %>% count(respLabels) %>%
@@ -181,11 +243,31 @@ posttestdf %>% count(respLabels) %>%
 
 ```{r questionaire, echo=FALSE}
 ## look at mean VVIQ responses
-VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(mean=mean)) %>%
-  ggplot(aes(x=subjID,y=mean)) + geom_point() + 
-  ggtitle("Mean Vividness Questionaire Ratings by Subject")
+VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(total=mean)) %>%
+  ggplot(aes(x=subjID,y=total)) + geom_point() + 
+  ggtitle("Total Vividness Questionaire Ratings by Subject")
 ```
 
+## Behavioral Analyses
 
+```{r replication, echo=FALSE}
+#do dprime for each stimulus condition
+stim_dprimedf <- data.frame(matrix(ncol=5))
+colnames(stim_dprimedf) <- c('subjID','hrRet','faRet','hrNoRet','faNoRet')
+for(isubj in seq(from=1,to=nsubj))
+{
+  indexRet <- (posttestdf$subjID==isubj & posttestdf$retLabels=="Retrieved")
+  indexNoRet <- (posttestdf$subjID==isubj & posttestdf$retLabels=="Not Retrieved")
+  hrRet <- sum(posttestdf$sureHits[indexRet])/sum(posttestdf$condLabels[indexRet]=="Old")
+  faRet <- sum(posttestdf$sureFA[indexRet])/sum(posttestdf$condLabels[indexRet]!="Old")
+  hrNoRet <- sum(posttestdf$sureHits[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]=="Old")
+  faNoRet <- sum(posttestdf$sureFA[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]!="Old")
+  stim_dprimedf <- rbind(stim_dprimedf,c(isubj,hrRet,faRet,hrNoRet,faNoRet))
+}
+stim_dprimedf <- stim_dprimedf[1:nsubj+1,] #artifact of not being tidy
+#stim_dprimedf <- stim_dprimedf[stim_dprimedf$subjID %!in% exclude_subj,]
+stim_dprimedf <- mutate(stim_dprimedf,dprimeRet=norminv(stim_dprimedf$hrRet,0,1)-norminv(stim_dprimedf$faRet,0,1))
+stim_dprimedf <- mutate(stim_dprimedf,dprimeNoRet=norminv(stim_dprimedf$hrNoRet,0,1)-norminv(stim_dprimedf$faNoRet,0,1))
 
-
+stim_dprimedf %>% summarise_at(vars(dprimeRet,dprimeNoRet),list(mean=mean)) %>% ggplot(aes(x=c('ret','no ret'),y=c(dprimeRet_mean,dprimeNoRet_mean))) +geom_bar(stat="identity")
+```

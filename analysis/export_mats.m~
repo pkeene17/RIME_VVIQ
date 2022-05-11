@@ -31,15 +31,15 @@ ptmat = load([wd,subjID,'/PT/',ptFN(end).name]);
 % vividDat.vividimageID = theData.Vivid.imageID';
 load([wd,subjID,'/study1/',stFN(end).name])
 studyData = theData.Study1;
-retData.condition = [ret1mat.theData.R1.condition,ret2mat.theData.R2.condition]';
+retData.stimulus = [ret1mat.theData.R1.condition,ret2mat.theData.R2.condition]';
 retData.conID = [ret1mat.theData.R1.conID,ret2mat.theData.R2.conID]';
-retData.wordID = [ret1mat.theData.R1.wordID',ret2mat.theData.R2.wordID']';
-retData.imageID = [ret1mat.theData.R1.imageID',ret2mat.theData.R2.imageID']';
-retData.category = [ret1mat.theData.R1.category',ret2mat.theData.R2.category']';
-retData.response = [ret1mat.theData.R1.vividresponse,ret2mat.theData.R2.vividresponse]';
-retData.rt = [ret1mat.theData.R1.vividRT,ret2mat.theData.R2.vividRT]';
+retData.wordID = [ret1mat.theData.R1.wordID,ret2mat.theData.R2.wordID]';
+retData.imageID = [ret1mat.theData.R1.imageID,ret2mat.theData.R2.imageID]';
+retData.category = cell2mat([ret1mat.theData.R1.category,ret2mat.theData.R2.category]');
+retData.response = cell2mat([ret1mat.theData.R1.vividresponse',ret2mat.theData.R2.vividresponse']');
+retData.rt = cell2mat([ret1mat.theData.R1.vividRT',ret2mat.theData.R2.vividRT']');
 
-ptData.condition = ptmat.theData.PT.condition';
+ptData.stimulus = ptmat.theData.PT.condition';
 ptData.conID = ptmat.theData.PT.conID';
 ptData.wordID = ptmat.theData.PT.wordID';
 ptData.imageID = ptmat.theData.PT.imageID';
@@ -53,10 +53,15 @@ ptData.acc = ptmat.theData.PT.Accuracy';
 ptData.sureCR = ptmat.theData.PT.sureCR';
 ptData.unsureCR = ptmat.theData.PT.unsureCR';
 ptData.sureHits = ptmat.theData.PT.sureHits';
-ptData.sureHits = ptmat.theData.PT.sureHits';
+for i = 1:288
+    ptData.conditionID=ptmat.theData.PT.conID{i}(3)
+end
+ptData.sureFA = (ptmat.theData.PT.Choice==4 & ptmat.theData.PT.conID(3)~="I")';
+ptData.FA = ((ptmat.theData.PT.Choice==4 | ptmat.theData.PT.Choice==3) & ptmat.theData.PT.conID(3)~="I")';
+% ptData.dprimeSure = norminv(sum(ptData.sureHits)/sum(ptmat.theData.PT.conID(3)=="I"),0,1) - norminv(sum(ptData.sureFA)/sum(ptmat.theData.PT.conID(3)~="I"),0,1);
+% ptData.dprime = norminv(sum(ptData.hits)/sum(ptmat.theData.PT.conID(3)=="I"),0,1) - norminv(sum(ptData.FA)/sum(ptmat.theData.PT.conID(3)~="I"),0,1);
 
 mkdir([wd,subjID,'/analysisFiles/'])
 save([wd,subjID,'/analysisFiles/ptData.mat'],'-struct','ptData')
 save([wd,subjID,'/analysisFiles/retData.mat'],'-struct','retData')
 save([wd,subjID,'/analysisFiles/studyData.mat'],'-struct','studyData')
-
