@@ -279,13 +279,16 @@ stim_dprimedf <- mutate(stim_dprimedf,dprime=(norminv(stim_dprimedf$hr,0,1)-norm
 
 
 #plot dprime by retrieval status
-stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(dprime),list(dmean=mean)) %>% ggplot(aes(x=retrieval,y=dmean)) +geom_bar(stat="identity")
+stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(dprime),list(dmean=mean)) %>%
+  ggplot(aes(x=retrieval,y=dmean,fill=retrieval)) +geom_bar(stat="identity")+ggtitle('dprime retreived vs not retreived stimuli')
 
 #plot hr and fa by retrieval status
-stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(hr),list(hr_mean=mean)) %>% ggplot(aes(x=retrieval,y=hr_mean)) +geom_bar(stat="identity")
+stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(hr),list(hr_mean=mean)) %>% 
+  ggplot(aes(x=retrieval,y=hr_mean,fill=retrieval)) +geom_bar(stat="identity")+ggtitle('hr retreived vs not retreived stimuli')
 
 #plot hr and fa by retrieval status
-stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% ggplot(aes(x=retrieval,y=fa_mean)) +geom_bar(stat="identity")
+stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% 
+  ggplot(aes(x=retrieval,y=fa_mean,fill=retrieval)) +geom_bar(stat="identity")+ggtitle('fa retreived vs not retreived stimuli')
 ```
 
 
@@ -299,11 +302,11 @@ dprimedf <- mutate(dprimedf,VVIQ=meanVVIQ$mean)
 
 #this seems backwards
 #cor.test(dprimedf$fa,dprimedf$VVIQ,method='pearson')
-dprimedf %>% ggscatter(x='fa',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson')
+dprimedf %>% ggscatter(x='fa',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='FA-VVIQ score correlation')
 
 #this is a little more reasonable
 #cor.test(dprimedf$dprime,dprimedf$VVIQ,method='pearson')
-dprimedf %>% ggscatter(x='dprime',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson')
+dprimedf %>% ggscatter(x='dprime',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='dprime-VVIQ score correlation')
 
 #lets try removing the middle subjects
 label_VVIQ <- function(VVIQ)
@@ -321,10 +324,10 @@ dprimedf <- mutate(dprimedf,VVIQ_group=unlist(lapply(dprimedf$VVIQ,label_VVIQ)))
 
 #plot diff between fa/dprime for high vs low VVIQ subjects
 dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% 
-  ggplot(aes(x=VVIQ_group,y=fa_mean)) + geom_bar(stat='identity')
+  ggplot(aes(x=VVIQ_group,y=fa_mean,fill=VVIQ_group)) + geom_bar(stat='identity') +ggtitle('mean FA rates by VVIQ groups')
 #dprime
 dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(dprime),list(dprime_mean=mean)) %>% 
-  ggplot(aes(x=VVIQ_group,y=dprime_mean)) + geom_bar(stat='identity')
+  ggplot(aes(x=VVIQ_group,y=dprime_mean,fill=VVIQ_group)) + geom_bar(stat='identity')+ggtitle('mean dprime by VVIQ groups')
 ```
 
 
