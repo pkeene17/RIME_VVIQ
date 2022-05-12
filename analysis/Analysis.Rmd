@@ -18,6 +18,7 @@ library(reticulate)
 library(ggpubr)
 library(rstatix)
 library(qapi)
+library(ggpubr)
 ```
 ```{r helpers, echo=FALSE}
 #define some helpers
@@ -252,22 +253,78 @@ VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(total=mean)) %>
 
 ```{r replication, echo=FALSE}
 #do dprime for each stimulus condition
-stim_dprimedf <- data.frame(matrix(ncol=5))
-colnames(stim_dprimedf) <- c('subjID','hrRet','faRet','hrNoRet','faNoRet')
+stim_dprimedf <- data.frame(matrix(ncol=4))
+colnames(stim_dprimedf) <- c('subjID','hr','fa','retrieval')
 for(isubj in seq(from=1,to=nsubj))
 {
   indexRet <- (posttestdf$subjID==isubj & posttestdf$retLabels=="Retrieved")
-  indexNoRet <- (posttestdf$subjID==isubj & posttestdf$retLabels=="Not Retrieved")
-  hrRet <- sum(posttestdf$sureHits[indexRet])/sum(posttestdf$condLabels[indexRet]=="Old")
-  faRet <- sum(posttestdf$sureFA[indexRet])/sum(posttestdf$condLabels[indexRet]!="Old")
-  hrNoRet <- sum(posttestdf$sureHits[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]=="Old")
-  faNoRet <- sum(posttestdf$sureFA[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]!="Old")
-  stim_dprimedf <- rbind(stim_dprimedf,c(isubj,hrRet,faRet,hrNoRet,faNoRet))
+  hrRet <- as.numeric(sum(posttestdf$sureHits[indexRet])/sum(posttestdf$condLabels[indexRet]=="Old"))
+  faRet <- as.numeric(sum(posttestdf$sureFA[indexRet])/sum(posttestdf$condLabels[indexRet]!="Old"))
+  stim_dprimedf <- rbind(stim_dprimedf,c(isubj,hrRet,faRet,'retrieved'))
 }
-stim_dprimedf <- stim_dprimedf[1:nsubj+1,] #artifact of not being tidy
+for(isubj in seq(from=1,to=nsubj))
+{
+  indexNoRet <- (posttestdf$subjID==isubj & posttestdf$retLabels=="Not Retrieved")
+  hrNoRet <- as.numeric(sum(posttestdf$sureHits[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]=="Old"))
+  faNoRet <- as.numeric(sum(posttestdf$sureFA[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]!="Old"))
+  stim_dprimedf <- rbind(stim_dprimedf,c(isubj,hrNoRet,faNoRet,'not retrieved'))
+}
+stim_dprimedf <- stim_dprimedf[2:(2*nsubj+1),] #artifact of not being tidy
+stim_dprimedf$hr <- as.numeric(stim_dprimedf$hr)
+stim_dprimedf$fa <- as.numeric(stim_dprimedf$fa)
+stim_dprimedf$subjID <- as.numeric(stim_dprimedf$subjID)
 #stim_dprimedf <- stim_dprimedf[stim_dprimedf$subjID %!in% exclude_subj,]
-stim_dprimedf <- mutate(stim_dprimedf,dprimeRet=norminv(stim_dprimedf$hrRet,0,1)-norminv(stim_dprimedf$faRet,0,1))
-stim_dprimedf <- mutate(stim_dprimedf,dprimeNoRet=norminv(stim_dprimedf$hrNoRet,0,1)-norminv(stim_dprimedf$faNoRet,0,1))
+stim_dprimedf <- mutate(stim_dprimedf,dprime=(norminv(stim_dprimedf$hr,0,1)-norminv(stim_dprimedf$fa,0,1)))
 
-stim_dprimedf %>% summarise_at(vars(dprimeRet,dprimeNoRet),list(mean=mean)) %>% ggplot(aes(x=c('ret','no ret'),y=c(dprimeRet_mean,dprimeNoRet_mean))) +geom_bar(stat="identity")
+
+
+#plot dprime by retrieval status
+stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(dprime),list(dmean=mean)) %>% ggplot(aes(x=retrieval,y=dmean)) +geom_bar(stat="identity")
+
+#plot hr and fa by retrieval status
+stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(hr),list(hr_mean=mean)) %>% ggplot(aes(x=retrieval,y=hr_mean)) +geom_bar(stat="identity")
+
+#plot hr and fa by retrieval status
+stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% ggplot(aes(x=retrieval,y=fa_mean)) +geom_bar(stat="identity")
 ```
+
+
+
+
+
+```{r beh-vividness correlation, echo=FALSE, message=FALSE, warning=FALSE}
+#my first thought is that FA and vividness are correlated
+meanVVIQ <- VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(mean=mean))
+dprimedf <- mutate(dprimedf,VVIQ=meanVVIQ$mean)
+
+#this seems backwards
+#cor.test(dprimedf$fa,dprimedf$VVIQ,method='pearson')
+dprimedf %>% ggscatter(x='fa',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson')
+
+#this is a little more reasonable
+#cor.test(dprimedf$dprime,dprimedf$VVIQ,method='pearson')
+dprimedf %>% ggscatter(x='dprime',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson')
+
+#lets try removing the middle subjects
+label_VVIQ <- function(VVIQ)
+{
+  if(VVIQ<2){
+    ret <- 'low'
+  } else if(VVIQ>4){
+    ret <- 'high'
+  } else{
+    ret <- 'mid'
+  }
+  return(ret)
+}
+dprimedf <- mutate(dprimedf,VVIQ_group=unlist(lapply(dprimedf$VVIQ,label_VVIQ)))
+
+#plot diff between fa/dprime for high vs low VVIQ subjects
+dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% 
+  ggplot(aes(x=VVIQ_group,y=fa_mean)) + geom_bar(stat='identity')
+#dprime
+dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(dprime),list(dprime_mean=mean)) %>% 
+  ggplot(aes(x=VVIQ_group,y=dprime_mean)) + geom_bar(stat='identity')
+```
+
+
