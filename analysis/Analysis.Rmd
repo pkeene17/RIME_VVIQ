@@ -134,7 +134,7 @@ vivid_labels <- function(posttestdf,retrievaldf)
 
 ```
 ```{r constants, echo=FALSE}
-nsubj <- 17
+nsubj <- 32
 ntrialsR <- 192
 ntrialsPT <- 288
 numquestions <- 16
@@ -197,21 +197,21 @@ retrievaldf %>% group_by(stimulus) %>% summarise_at(vars(response),list(mean_rat
 
 ```{r post test, echo=FALSE}
 ## look at acc on post test
-posttestdf %>% group_by(subjID) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
-  ggplot(aes(x=subjID,y=mean_acc)) + geom_point() + 
-  ggtitle("Mean Post test Accuracy for each Subject")
-## look at acc on post test split by stimulus type
-posttestdf %>% group_by(stimulus) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
-  ggplot(aes(x=stimulus,y=mean_acc)) + geom_bar(stat="identity") + 
-  ggtitle("Mean Post Test Accuracy by Stimulus Type")
-## look at acc on post test split by condition
-posttestdf %>% group_by(condLabels) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
-  ggplot(aes(x=condLabels,y=mean_acc)) + geom_bar(stat="identity") + 
-  ggtitle("Mean Post Test Accuracy by Memory Condition")
-## look at acc on post test split by retrieval condition
-posttestdf %>% group_by(retLabels) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
-  ggplot(aes(x=retLabels,y=mean_acc)) + geom_bar(stat="identity") + 
-  ggtitle("Mean Post Test Accuracy by Retrieval Status")
+#posttestdf %>% group_by(subjID) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
+#   ggplot(aes(x=subjID,y=mean_acc)) + geom_point() + 
+#   ggtitle("Mean Post test Accuracy for each Subject")
+# ## look at acc on post test split by stimulus type
+# posttestdf %>% group_by(stimulus) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
+#   ggplot(aes(x=stimulus,y=mean_acc)) + geom_bar(stat="identity") + 
+#   ggtitle("Mean Post Test Accuracy by Stimulus Type")
+# ## look at acc on post test split by condition
+# posttestdf %>% group_by(condLabels) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
+#   ggplot(aes(x=condLabels,y=mean_acc)) + geom_bar(stat="identity") + 
+#   ggtitle("Mean Post Test Accuracy by Memory Condition")
+# ## look at acc on post test split by retrieval condition
+# posttestdf %>% group_by(retLabels) %>% summarise_at(vars(acc),list(mean_acc=mean)) %>%
+#   ggplot(aes(x=retLabels,y=mean_acc)) + geom_bar(stat="identity") + 
+#   ggtitle("Mean Post Test Accuracy by Retrieval Status")
 ## lets get dprime
 
 '%!in%' <- Negate('%in%')
@@ -252,6 +252,9 @@ VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(total=mean)) %>
 ## Behavioral Analyses
 
 ```{r replication, echo=FALSE}
+#exclude based on performance
+exclude_subj=c(6,10)
+print(paste("n excluded (based on dprime being close to 0) = ",as.character(length(exclude_subj))))
 #do dprime for each stimulus condition
 stim_dprimedf <- data.frame(matrix(ncol=4))
 colnames(stim_dprimedf) <- c('subjID','hr','fa','retrieval')
@@ -259,38 +262,43 @@ for(isubj in seq(from=1,to=nsubj))
 {
   indexRet <- (posttestdf$subjID==isubj & posttestdf$retLabels=="Retrieved")
   hrRet <- as.numeric(sum(posttestdf$sureHits[indexRet])/sum(posttestdf$condLabels[indexRet]=="Old"))
-  faRet <- as.numeric(sum(posttestdf$sureFA[indexRet])/sum(posttestdf$condLabels[indexRet]!="Old"))
+  faRet <- as.numeric(sum(posttestdf$sureFA[indexRet])/sum(posttestdf$condLabels[indexRet]=="Foil"))
   stim_dprimedf <- rbind(stim_dprimedf,c(isubj,hrRet,faRet,'retrieved'))
 }
 for(isubj in seq(from=1,to=nsubj))
 {
   indexNoRet <- (posttestdf$subjID==isubj & posttestdf$retLabels=="Not Retrieved")
   hrNoRet <- as.numeric(sum(posttestdf$sureHits[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]=="Old"))
-  faNoRet <- as.numeric(sum(posttestdf$sureFA[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]!="Old"))
+  faNoRet <- as.numeric(sum(posttestdf$sureFA[indexNoRet])/sum(posttestdf$condLabels[indexNoRet]=="Foil"))
   stim_dprimedf <- rbind(stim_dprimedf,c(isubj,hrNoRet,faNoRet,'not retrieved'))
 }
 stim_dprimedf <- stim_dprimedf[2:(2*nsubj+1),] #artifact of not being tidy
 stim_dprimedf$hr <- as.numeric(stim_dprimedf$hr)
 stim_dprimedf$fa <- as.numeric(stim_dprimedf$fa)
 stim_dprimedf$subjID <- as.numeric(stim_dprimedf$subjID)
-#stim_dprimedf <- stim_dprimedf[stim_dprimedf$subjID %!in% exclude_subj,]
+stim_dprimedf <- stim_dprimedf[stim_dprimedf$subjID %!in% exclude_subj,]
 stim_dprimedf <- mutate(stim_dprimedf,dprime=(norminv(stim_dprimedf$hr,0,1)-norminv(stim_dprimedf$fa,0,1)))
 
 
 
 #plot dprime by retrieval status
 stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(dprime),list(dmean=mean)) %>%
-  ggplot(aes(x=retrieval,y=dmean,fill=retrieval)) +geom_bar(stat="identity")+ggtitle('dprime retreived vs not retreived stimuli')
+  ggplot(aes(x=retrieval,y=dmean,fill=retrieval))+
+  geom_bar(stat="identity")+
+  geom_errorbar(aes(ymin=dmean-sd(dmean),ymax=dmean+sd(dmean)),width=.2)+ggtitle('dprime retreived vs not retreived stimuli')
 print(t.test(stim_dprimedf$dprime[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$dprime[stim_dprimedf$retrieval=='retrieved']))
 
 #plot hr and fa by retrieval status
 stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(hr),list(hr_mean=mean)) %>% 
-  ggplot(aes(x=retrieval,y=hr_mean,fill=retrieval)) +geom_bar(stat="identity")+ggtitle('hr retreived vs not retreived stimuli')
+  ggplot(aes(x=retrieval,y=hr_mean,fill=retrieval))+geom_bar(stat="identity")+geom_bar(stat="identity")+
+  geom_errorbar(aes(ymin=hr_mean-sd(hr_mean),ymax=hr_mean+sd(hr_mean)),width=.2)+ggtitle('hr retreived vs not retreived stimuli')
 print(t.test(stim_dprimedf$hr[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$hr[stim_dprimedf$retrieval=='retrieved']))
 
 #plot hr and fa by retrieval status
 stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% 
-  ggplot(aes(x=retrieval,y=fa_mean,fill=retrieval)) +geom_bar(stat="identity")+ggtitle('fa retreived vs not retreived stimuli')
+  ggplot(aes(x=retrieval,y=fa_mean,fill=retrieval))+
+  geom_bar(stat="identity")+geom_errorbar(aes(ymin=fa_mean-sd(fa_mean),ymax=fa_mean+sd(fa_mean)),width=.2)+
+  ggtitle('fa retreived vs not retreived stimuli')
 print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$fa[stim_dprimedf$retrieval=='retrieved']))
 ```
 
@@ -324,15 +332,18 @@ label_VVIQ <- function(VVIQ)
   return(ret)
 }
 dprimedf <- mutate(dprimedf,VVIQ_group=unlist(lapply(dprimedf$VVIQ,label_VVIQ)))
+dprimedf <- dprimedf[dprimedf$subjID %!in% exclude_subj,]
 
 #plot diff between fa/dprime for high vs low VVIQ subjects
 dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% 
-  ggplot(aes(x=VVIQ_group,y=fa_mean,fill=VVIQ_group)) + geom_bar(stat='identity') +ggtitle('mean FA rates by VVIQ groups')
+  ggplot(aes(x=VVIQ_group,y=fa_mean,fill=VVIQ_group)) + geom_bar(stat='identity') +
+  geom_errorbar(aes(ymin=fa_mean-sd(fa_mean),ymax=fa_mean+sd(fa_mean)),width=.2)+ggtitle('mean FA rates by VVIQ groups')
 print(t.test(dprimedf$fa[dprimedf$VVIQ_group=='high'],dprimedf$fa[dprimedf$VVIQ_group=='mid']))
 #this is where I'd put my ttest between high and low subjects... IF I HAD ANY
 #dprime
 dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(dprime),list(dprime_mean=mean)) %>% 
-  ggplot(aes(x=VVIQ_group,y=dprime_mean,fill=VVIQ_group)) + geom_bar(stat='identity')+ggtitle('mean dprime by VVIQ groups')
+  ggplot(aes(x=VVIQ_group,y=dprime_mean,fill=VVIQ_group)) + geom_bar(stat='identity')+
+  geom_errorbar(aes(ymin=dprime_mean-sd(dprime_mean),ymax=dprime_mean+sd(dprime_mean)),width=.2)+ggtitle('mean dprime by VVIQ groups')
 print(t.test(dprimedf$dprime[dprimedf$VVIQ_group=='high'],dprimedf$dprime[dprimedf$VVIQ_group=='mid']))
 ```
 
