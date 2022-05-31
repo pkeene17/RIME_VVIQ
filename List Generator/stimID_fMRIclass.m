@@ -13,7 +13,7 @@
 % record, I don't have this script called by anything else.  In other
 % words, I'll run it once, save the stims variable and that's that.
 
-subNum = 40; %total number of subjects
+subNum = 99; %total number of subjects
 
 
 %How many unique items from each category are neccesary for the experiment

@@ -1,6 +1,6 @@
 clear all;
 
-numsub = 40; 
+numsub = 99; 
 
 load allLists.mat %loads original trial lists (study1 and vividness) for all subjects that Franka made
 

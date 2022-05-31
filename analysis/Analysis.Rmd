@@ -134,7 +134,7 @@ vivid_labels <- function(posttestdf,retrievaldf)
 
 ```
 ```{r constants, echo=FALSE}
-nsubj <- 32
+nsubj <- 48
 ntrialsR <- 192
 ntrialsPT <- 288
 numquestions <- 16
@@ -253,7 +253,7 @@ VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(total=mean)) %>
 
 ```{r replication, echo=FALSE}
 #exclude based on performance
-exclude_subj=c(6,10)
+exclude_subj=c(6,10,34,35,36,37,38,39,40) #I fucked up updating the code. 
 print(paste("n excluded (based on dprime being close to 0) = ",as.character(length(exclude_subj))))
 #do dprime for each stimulus condition
 stim_dprimedf <- data.frame(matrix(ncol=4))
@@ -339,12 +339,16 @@ dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(fa),list(fa_mean=mean)) 
   ggplot(aes(x=VVIQ_group,y=fa_mean,fill=VVIQ_group)) + geom_bar(stat='identity') +
   geom_errorbar(aes(ymin=fa_mean-sd(fa_mean),ymax=fa_mean+sd(fa_mean)),width=.2)+ggtitle('mean FA rates by VVIQ groups')
 print(t.test(dprimedf$fa[dprimedf$VVIQ_group=='high'],dprimedf$fa[dprimedf$VVIQ_group=='mid']))
-#this is where I'd put my ttest between high and low subjects... IF I HAD ANY
+tmp <- mean(dprimedf$fa[dprimedf$VVIQ_group=='low'])
+print(t.test(dprimedf$fa[dprimedf$VVIQ_group=='high'],mu=tmp,alternative='two.sided'))
+#print(t.test(dprimedf$fa[dprimedf$VVIQ_group=='mid'],dprimedf$fa[dprimedf$VVIQ_group=='low']))
 #dprime
 dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(dprime),list(dprime_mean=mean)) %>% 
   ggplot(aes(x=VVIQ_group,y=dprime_mean,fill=VVIQ_group)) + geom_bar(stat='identity')+
   geom_errorbar(aes(ymin=dprime_mean-sd(dprime_mean),ymax=dprime_mean+sd(dprime_mean)),width=.2)+ggtitle('mean dprime by VVIQ groups')
 print(t.test(dprimedf$dprime[dprimedf$VVIQ_group=='high'],dprimedf$dprime[dprimedf$VVIQ_group=='mid']))
+tmp <- mean(dprimedf$dprime[dprimedf$VVIQ_group=='low'])
+print(t.test(dprimedf$dprime[dprimedf$VVIQ_group=='high'],mu=tmp,alternative='two.sided'))
 ```
 
 

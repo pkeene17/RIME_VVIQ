@@ -17,7 +17,7 @@ clear all;
 %% Set Variables
 %%%%%%%%%%%%%%%%%%%%%%%%%
 %Subjects
-numSub = 40; %put the number of subjects here
+numSub = 99; %put the number of subjects here
 
 %Conditions
 % F = face ; S = scene ; O  = object ; N = no retrieval ; R = retrieval
