@@ -19,6 +19,7 @@ library(ggpubr)
 library(rstatix)
 library(qapi)
 library(ggpubr)
+library(forcats)
 ```
 ```{r helpers, echo=FALSE}
 #define some helpers
@@ -132,9 +133,12 @@ vivid_labels <- function(posttestdf,retrievaldf)
   return(posttestdf)
 }
 
+#compute standard error of the mean
+sem <- function(x) sd(x)/sqrt(length(x))
+
 ```
 ```{r constants, echo=FALSE}
-nsubj <- 48
+nsubj <- 64
 ntrialsR <- 192
 ntrialsPT <- 288
 numquestions <- 16
@@ -186,7 +190,10 @@ for (isubj in seq(from=1, to=nsubj))
 ## Vividness Rating plots
 ```{r vividness, echo=FALSE}
 ## look at responses on vividness test
-ggplot(retrievaldf,aes(x=response)) + geom_histogram(color='black',fill='blue',bins=5) + xlab('vividness rating') + ggtitle("Distribution of Vividness Ratings")
+labs <- (c(.1,.2,.3,.4)*length(retrievaldf$response))
+ggplot(retrievaldf,aes(x=response)) + geom_histogram(color='black',fill='blue',bins=5) + xlab('vividness rating') +
+  ggtitle("Distribution of Vividness Ratings") + 
+  scale_y_continuous(name="% of responses",breaks=labs,labels=100*c(.1,.2,.3,.4))
 #group by face object and scene images
 retrievaldf %>% group_by(stimulus) %>% summarise_at(vars(response),list(mean_rating=mean)) %>%
   ggplot(aes(x=stimulus,y=mean_rating)) + geom_bar(stat="identity") + 
@@ -236,8 +243,10 @@ dprimedf %>% ggplot(aes(x=subjID,y=dprime)) + geom_point() + ggtitle(paste("d' f
 exclude_subj <- c(6,10) #exclude people who were clearly not trying (FA>=HR/dprime<=0)
 
 ## look at confidence on post test
+labs <- (c(.1,.2,.3,.4)*length(posttestdf$respLabels))
 posttestdf %>% count(respLabels) %>%
-  ggplot(aes(x=respLabels,y=n)) + geom_bar(stat="identity") + ggtitle("Distribution of Post Test Confidence Ratings")
+  ggplot(aes(x=respLabels,y=n)) + geom_bar(stat="identity") + ggtitle("Distribution of Post Test Confidence Ratings") + 
+  scale_y_continuous(name="% of responses",breaks=labs,labels=100*c(.1,.2,.3,.4))
 ```
 
 ## Questionaire Data
@@ -289,15 +298,15 @@ stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(dprime),list(dmean=m
 print(t.test(stim_dprimedf$dprime[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$dprime[stim_dprimedf$retrieval=='retrieved']))
 
 #plot hr and fa by retrieval status
-stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(hr),list(hr_mean=mean)) %>% 
+stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(hr),list(hr_mean=mean,hr_sd=sem)) %>% 
   ggplot(aes(x=retrieval,y=hr_mean,fill=retrieval))+geom_bar(stat="identity")+geom_bar(stat="identity")+
-  geom_errorbar(aes(ymin=hr_mean-sd(hr_mean),ymax=hr_mean+sd(hr_mean)),width=.2)+ggtitle('hr retreived vs not retreived stimuli')
+  geom_errorbar(aes(ymin=hr_mean-hr_sd,ymax=hr_mean+hr_sd),width=.2)+ggtitle('hr retreived vs not retreived stimuli')
 print(t.test(stim_dprimedf$hr[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$hr[stim_dprimedf$retrieval=='retrieved']))
 
 #plot hr and fa by retrieval status
-stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% 
+stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(fa),list(fa_mean=mean,fa_sd=sem)) %>% 
   ggplot(aes(x=retrieval,y=fa_mean,fill=retrieval))+
-  geom_bar(stat="identity")+geom_errorbar(aes(ymin=fa_mean-sd(fa_mean),ymax=fa_mean+sd(fa_mean)),width=.2)+
+  geom_bar(stat="identity")+geom_errorbar(aes(ymin=fa_mean-fa_sd,ymax=fa_mean+fa_sd),width=.2)+
   ggtitle('fa retreived vs not retreived stimuli')
 print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$fa[stim_dprimedf$retrieval=='retrieved']))
 ```
@@ -306,7 +315,7 @@ print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dpr
 
 
 
-```{r beh-vividness correlation, echo=FALSE, message=FALSE, warning=FALSE}
+```{r beh-vividness correlation set up, echo=FALSE, message=FALSE, warning=FALSE}
 #my first thought is that FA and vividness are correlated
 meanVVIQ <- VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(mean=mean))
 dprimedf <- mutate(dprimedf,VVIQ=meanVVIQ$mean)
@@ -331,24 +340,45 @@ label_VVIQ <- function(VVIQ)
   }
   return(ret)
 }
-dprimedf <- mutate(dprimedf,VVIQ_group=unlist(lapply(dprimedf$VVIQ,label_VVIQ)))
+dprimedf <- mutate(dprimedf,VVIQ_group=as.factor(unlist(lapply(dprimedf$VVIQ,label_VVIQ))))
 dprimedf <- dprimedf[dprimedf$subjID %!in% exclude_subj,]
+```
 
+```{r beh-vividness correlation plotting, echo=FALSE, message=FALSE, warning=FALSE}
+library(coin)
+zscoreddf <- dprimedf
+zscoreddf$hr <- scale(zscoreddf$hr)
+zscoreddf$fa <- scale(zscoreddf$fa)
+zscoreddf$dprime <- scale(zscoreddf$dprime)
 #plot diff between fa/dprime for high vs low VVIQ subjects
-dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(fa),list(fa_mean=mean)) %>% 
+dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(fa),list(fa_mean=mean,fa_sd=sem)) %>% 
   ggplot(aes(x=VVIQ_group,y=fa_mean,fill=VVIQ_group)) + geom_bar(stat='identity') +
-  geom_errorbar(aes(ymin=fa_mean-sd(fa_mean),ymax=fa_mean+sd(fa_mean)),width=.2)+ggtitle('mean FA rates by VVIQ groups')
+  geom_errorbar(aes(ymin=fa_mean-fa_sd,ymax=fa_mean+fa_sd),width=.2)+ggtitle('mean FA rates by VVIQ groups') +
+  scale_x_discrete(limits=c('high','mid','low'))
 print(t.test(dprimedf$fa[dprimedf$VVIQ_group=='high'],dprimedf$fa[dprimedf$VVIQ_group=='mid']))
-tmp <- mean(dprimedf$fa[dprimedf$VVIQ_group=='low'])
-print(t.test(dprimedf$fa[dprimedf$VVIQ_group=='high'],mu=tmp,alternative='two.sided'))
+print(t.test(dprimedf$fa[dprimedf$VVIQ_group=='high'],dprimedf$fa[dprimedf$VVIQ_group=='low']))
+#print(oneway_test(fa~VVIQ_group,data=dprimedf,distribution=approximate(9999)))
 #print(t.test(dprimedf$fa[dprimedf$VVIQ_group=='mid'],dprimedf$fa[dprimedf$VVIQ_group=='low']))
+print(paste("pnorm of fa for low VVIQ subjects: ",as.character(pnorm(zscoreddf$fa[zscoreddf$VVIQ_group=='low']))))
 #dprime
-dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(dprime),list(dprime_mean=mean)) %>% 
+dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(dprime),list(dprime_mean=mean,dprime_sd=sem)) %>% 
   ggplot(aes(x=VVIQ_group,y=dprime_mean,fill=VVIQ_group)) + geom_bar(stat='identity')+
-  geom_errorbar(aes(ymin=dprime_mean-sd(dprime_mean),ymax=dprime_mean+sd(dprime_mean)),width=.2)+ggtitle('mean dprime by VVIQ groups')
+  geom_errorbar(aes(ymin=dprime_mean-dprime_sd,ymax=dprime_mean+dprime_sd),width=.2)+ggtitle('mean dprime by VVIQ groups') +
+  scale_x_discrete(limits=c('high','mid','low'))
 print(t.test(dprimedf$dprime[dprimedf$VVIQ_group=='high'],dprimedf$dprime[dprimedf$VVIQ_group=='mid']))
-tmp <- mean(dprimedf$dprime[dprimedf$VVIQ_group=='low'])
-print(t.test(dprimedf$dprime[dprimedf$VVIQ_group=='high'],mu=tmp,alternative='two.sided'))
+print(t.test(dprimedf$dprime[dprimedf$VVIQ_group=='high'],dprimedf$dprime[dprimedf$VVIQ_group=='low']))
+#print(oneway_test(dprime~VVIQ_group,data=dprimedf,distribution=approximate(9999)))
+print(paste("pnorm of dprime for low VVIQ subjects: ",as.character(pnorm(zscoreddf$dprime[zscoreddf$VVIQ_group=='low']))))
+#check HR
+dprimedf %>% group_by(VVIQ_group) %>% summarise_at(vars(hr),list(hr_mean=mean,hr_sd=sem)) %>% 
+  ggplot(aes(x=VVIQ_group,y=hr_mean,fill=VVIQ_group)) + geom_bar(stat='identity')+
+  geom_errorbar(aes(ymin=hr_mean-hr_sd,ymax=hr_mean+hr_sd),width=.2)+ggtitle('mean HR by VVIQ groups') +
+  scale_x_discrete(limits=c('high','mid','low'))
+print(t.test(dprimedf$hr[dprimedf$VVIQ_group=='high'],dprimedf$hr[dprimedf$VVIQ_group=='mid']))
+#tmp <- mean(dprimedf$hr[dprimedf$VVIQ_group=='low'])
+print(t.test(dprimedf$hr[dprimedf$VVIQ_group=='high'],dprimedf$hr[dprimedf$VVIQ_group=='low']))
+#print(oneway_test(hr~VVIQ_group,data=dprimedf,distribution=approximate(9999)))
+print(paste("pnorm of hr for low VVIQ subjects: ",as.character(pnorm(zscoreddf$hr[zscoreddf$VVIQ_group=='low']))))
 ```
 
 
