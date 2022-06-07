@@ -262,7 +262,7 @@ VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(total=mean)) %>
 
 ```{r replication, echo=FALSE}
 #exclude based on performance
-exclude_subj=c(6,10,34,35,36,37,38,39,40) #I fucked up updating the code. 
+exclude_subj=c(3,6,10,12,24,34,35,36,37,38,39,40,59,61) #I fucked up updating the code. 
 print(paste("n excluded (based on dprime being close to 0) = ",as.character(length(exclude_subj))))
 #do dprime for each stimulus condition
 stim_dprimedf <- data.frame(matrix(ncol=4))
@@ -295,20 +295,20 @@ stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(dprime),list(dmean=m
   ggplot(aes(x=retrieval,y=dmean,fill=retrieval))+
   geom_bar(stat="identity")+
   geom_errorbar(aes(ymin=dmean-sd(dmean),ymax=dmean+sd(dmean)),width=.2)+ggtitle('dprime retreived vs not retreived stimuli')
-print(t.test(stim_dprimedf$dprime[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$dprime[stim_dprimedf$retrieval=='retrieved']))
+print(t.test(stim_dprimedf$dprime[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$dprime[stim_dprimedf$retrieval=='retrieved'],paired=TRUE))
 
 #plot hr and fa by retrieval status
 stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(hr),list(hr_mean=mean,hr_sd=sem)) %>% 
   ggplot(aes(x=retrieval,y=hr_mean,fill=retrieval))+geom_bar(stat="identity")+geom_bar(stat="identity")+
   geom_errorbar(aes(ymin=hr_mean-hr_sd,ymax=hr_mean+hr_sd),width=.2)+ggtitle('hr retreived vs not retreived stimuli')
-print(t.test(stim_dprimedf$hr[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$hr[stim_dprimedf$retrieval=='retrieved']))
+print(t.test(stim_dprimedf$hr[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$hr[stim_dprimedf$retrieval=='retrieved'],paired=TRUE))
 
 #plot hr and fa by retrieval status
 stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(fa),list(fa_mean=mean,fa_sd=sem)) %>% 
   ggplot(aes(x=retrieval,y=fa_mean,fill=retrieval))+
   geom_bar(stat="identity")+geom_errorbar(aes(ymin=fa_mean-fa_sd,ymax=fa_mean+fa_sd),width=.2)+
   ggtitle('fa retreived vs not retreived stimuli')
-print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$fa[stim_dprimedf$retrieval=='retrieved']))
+print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$fa[stim_dprimedf$retrieval=='retrieved'],paired=TRUE))
 ```
 
 
@@ -380,5 +380,70 @@ print(t.test(dprimedf$hr[dprimedf$VVIQ_group=='high'],dprimedf$hr[dprimedf$VVIQ_
 #print(oneway_test(hr~VVIQ_group,data=dprimedf,distribution=approximate(9999)))
 print(paste("pnorm of hr for low VVIQ subjects: ",as.character(pnorm(zscoreddf$hr[zscoreddf$VVIQ_group=='low']))))
 ```
+```{r response breakdown, echo=FALSE, message=FALSE, warning=FALSE}
+
+label_VVIQ_PT <- function(subID){
+  return(dprimedf$VVIQ_group[dprimedf$subjID==subID])
+}
+
+posttestdfclean <- posttestdf[posttestdf$subjID %!in% exclude_subj,]
+posttestdfclean <- mutate(posttestdfclean,VVIQ_group=as.factor(unlist(lapply(posttestdf$subjID,label_VVIQ_PT))))
+
+labs <- (c(30,60,90,120))
+
+posttestdfclean %>% count(subjID,respLabels) %>% mutate(VVIQ_group=unlist(lapply(subjID,label_VVIQ_PT))) %>%
+  group_by(VVIQ_group,respLabels) %>% summarise_at(vars(n),list(mean=mean,sd=sem)) %>%
+  ggplot(aes(x=respLabels,y=mean,fill=VVIQ_group)) + geom_bar(stat="identity",position='dodge') +
+  geom_errorbar(aes(ymin=mean-sd,ymax=mean+sd),position='dodge')+ggtitle('mean HR by VVIQ groups') +
+  ggtitle("Distribution of Post Test Confidence Ratings") + 
+  scale_y_continuous(name="% of responses per participant",breaks=labs,labels=100*round(c(30,60,90,120)/288,3))
+
+```
 
 
+```{r retrieval only conditions, echo=FALSE, message=FALSE, warning=FALSE}
+
+VVIQ_PT <- function(subID){
+  return(dprimedf$VVIQ[dprimedf$subjID==subID])
+}
+
+stim_dprimedf <- mutate(stim_dprimedf,VVIQ=unlist(lapply(stim_dprimedf$subjID,VVIQ_PT)))
+stim_dprimedf <- mutate(stim_dprimedf,VVIQ_group=as.factor(unlist(lapply(stim_dprimedf$subjID,label_VVIQ_PT))))
+dprimedf <- mutate(dprimedf,hrdiff=stim_dprimedf$hr[stim_dprimedf$retrieval=="retrieved"]-stim_dprimedf$hr[stim_dprimedf$retrieval=="not retrieved"])
+dprimedf <- mutate(dprimedf,fadiff=stim_dprimedf$fa[stim_dprimedf$retrieval=="retrieved"]-stim_dprimedf$fa[stim_dprimedf$retrieval=="not retrieved"])
+dprimedf <- mutate(dprimedf,ddiff=stim_dprimedf$dprime[stim_dprimedf$retrieval=="retrieved"]-stim_dprimedf$dprime[stim_dprimedf$retrieval=="not retrieved"])
+
+stim_dprimedf[stim_dprimedf$retrieval=="retrieved",] %>%
+  ggscatter(x='fa',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='FA-VVIQ score correlation, retrieved condition only')
+
+stim_dprimedf[stim_dprimedf$retrieval=="retrieved",] %>%
+  ggscatter(x='dprime',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='dprime-VVIQ score correlation, retrieved condition only')
+
+#plot dprime by retrieval status
+stim_dprimedf %>% group_by(VVIQ_group,retrieval) %>% summarise_at(vars(dprime),list(dmean=mean)) %>%
+  ggplot(aes(x=retrieval,y=dmean,fill=VVIQ_group))+
+  geom_bar(stat="identity",position='dodge')+
+  geom_errorbar(aes(ymin=dmean-sd(dmean),ymax=dmean+sd(dmean)),position='dodge')+ggtitle('dprime retreived vs not retreived stimuli')
+print(t.test(stim_dprimedf$dprime[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$dprime[stim_dprimedf$retrieval=='retrieved'],paired=TRUE))
+
+#plot hr and fa by retrieval status
+stim_dprimedf %>% group_by(VVIQ_group,retrieval) %>% summarise_at(vars(hr),list(hr_mean=mean,hr_sd=sem)) %>% 
+  ggplot(aes(x=retrieval,y=hr_mean,fill=VVIQ_group))+geom_bar(stat="identity",position='dodge')+
+  geom_errorbar(aes(ymin=hr_mean-hr_sd,ymax=hr_mean+hr_sd),position='dodge')+ggtitle('hr retreived vs not retreived stimuli')
+print(t.test(stim_dprimedf$hr[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$hr[stim_dprimedf$retrieval=='retrieved'],paired=TRUE))
+
+#plot hr and fa by retrieval status
+stim_dprimedf %>% group_by(VVIQ_group,retrieval) %>% summarise_at(vars(fa),list(fa_mean=mean,fa_sd=sem)) %>% 
+  ggplot(aes(x=retrieval,y=fa_mean,fill=VVIQ_group))+
+  geom_bar(stat="identity",position='dodge')+geom_errorbar(aes(ymin=fa_mean-fa_sd,ymax=fa_mean+fa_sd),position='dodge')+
+  ggtitle('fa retreived vs not retreived stimuli')
+print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$fa[stim_dprimedf$retrieval=='retrieved'],paired=TRUE))
+
+
+#check difference between ret vs not ret
+dprimedf %>% ggscatter(x='fadiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='FA-VVIQ score correlation')
+
+dprimedf %>% ggscatter(x='ddiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='dprime-VVIQ score correlation')
+
+dprimedf %>% ggscatter(x='hrdiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='HR-VVIQ score correlation')
+```
