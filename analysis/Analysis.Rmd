@@ -262,7 +262,7 @@ VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(total=mean)) %>
 
 ```{r replication, echo=FALSE}
 #exclude based on performance
-exclude_subj=c(3,6,10,12,24,34,35,36,37,38,39,40,59,61) #I fucked up updating the code. 
+exclude_subj=c(34,35,36,37,38,39,40)#c(3,6,10,12,24,34,35,36,37,38,39,40,59,61) #I fucked up updating the code. 
 print(paste("n excluded (based on dprime being close to 0) = ",as.character(length(exclude_subj))))
 #do dprime for each stimulus condition
 stim_dprimedf <- data.frame(matrix(ncol=4))
