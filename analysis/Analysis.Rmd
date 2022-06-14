@@ -417,10 +417,10 @@ dprimedf <- mutate(dprimedf,hrdiff=stim_dprimedf$hr[stim_dprimedf$retrieval=="re
 dprimedf <- mutate(dprimedf,fadiff=stim_dprimedf$fa[stim_dprimedf$retrieval=="retrieved"]-stim_dprimedf$fa[stim_dprimedf$retrieval=="not retrieved"])
 dprimedf <- mutate(dprimedf,ddiff=stim_dprimedf$dprime[stim_dprimedf$retrieval=="retrieved"]-stim_dprimedf$dprime[stim_dprimedf$retrieval=="not retrieved"])
 
-stim_dprimedf[stim_dprimedf$retrieval=="retrieved",] %>%
+stim_dprimedf[(stim_dprimedf$retrieval=="retrieved") & (stim_dprimedf$VVIQ_group!='low'),] %>%
   ggscatter(x='fa',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='FA-VVIQ score correlation, retrieved condition only')
 
-stim_dprimedf[stim_dprimedf$retrieval=="retrieved",] %>%
+stim_dprimedf[(stim_dprimedf$retrieval=="retrieved") & (stim_dprimedf$VVIQ_group!='low'),] %>%
   ggscatter(x='dprime',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='dprime-VVIQ score correlation, retrieved condition only')
 
 #plot dprime by retrieval status
