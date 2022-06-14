@@ -222,14 +222,16 @@ retrievaldf %>% group_by(stimulus) %>% summarise_at(vars(response),list(mean_rat
 ## lets get dprime
 
 '%!in%' <- Negate('%in%')
-dprimedf <- data.frame(matrix(ncol=3))
-colnames(dprimedf) <- c('subjID','hr','fa')
+dprimedf <- data.frame(matrix(ncol=5))
+colnames(dprimedf) <- c('subjID','hr','fa','hrTarget','faLure')
 #this dataset was not built for R so I'm doing it with python syntax
 for(isubj in seq(from=1,to=nsubj))
 {
   hr <- sum(posttestdf$sureHits[posttestdf$subjID==isubj])/sum(posttestdf$condLabels[posttestdf$subjID==isubj]=="Old")
   fa <- sum(posttestdf$sureFA[posttestdf$subjID==isubj])/sum(posttestdf$condLabels[posttestdf$subjID==isubj]!="Old")
-  dprimedf <- rbind(dprimedf,c(isubj,hr,fa))
+  hrTarget <- sum(posttestdf$sureHits[posttestdf$subjID==isubj & posttestdf$condLabels=="Old"])/sum(posttestdf$condLabels[posttestdf$subjID==isubj]=="Old")
+  faLure <- sum(posttestdf$sureFA[posttestdf$subjID==isubj & posttestdf$condLabels=="New"])/sum(posttestdf$condLabels[posttestdf$subjID==isubj]=="New")
+  dprimedf <- rbind(dprimedf,c(isubj,hr,fa,hrTarget,faLure))
 }
 dprimedf <- dprimedf[1:nsubj+1,] #artifact of not being tidy
 #dprimedf <- dprimedf[dprimedf$subjID %!in% exclude_subj,]
@@ -238,6 +240,7 @@ meanFA<-mean(dprimedf$fa)
 sdHR<-sd(dprimedf$hr)
 sdFA<-sd(dprimedf$fa)
 dprimedf <- mutate(dprimedf,dprime=norminv(dprimedf$hr,0,1)-norminv(dprimedf$fa,0,1))
+dprimedf <- mutate(dprimedf,dprimeEX=norminv(dprimedf$hrTarget,0,1)-norminv(dprimedf$faLure,0,1))
 #inspect dprime for all subjects to see if there's anyone we should exclude
 dprimedf %>% ggplot(aes(x=subjID,y=dprime)) + geom_point() + ggtitle(paste("d' for all subjects: mean = ",as.character(mean(dprimedf$dprime))))
 exclude_subj <- c(6,10) #exclude people who were clearly not trying (FA>=HR/dprime<=0)
@@ -262,8 +265,8 @@ VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(total=mean)) %>
 
 ```{r replication, echo=FALSE}
 #exclude based on performance
-exclude_subj=c(34,35,36,37,38,39,40)#c(3,6,10,12,24,34,35,36,37,38,39,40,59,61) #I fucked up updating the code. 
-print(paste("n excluded (based on dprime being close to 0) = ",as.character(length(exclude_subj))))
+exclude_subj=c(6,10,34,35,36,37,38,39,40)#c(3,6,10,12,24,34,35,36,37,38,39,40,59,61) #I fucked up updating the code. 
+print(paste("n excluded (based on target hr - lure fa being close to 0) = ",as.character(length(exclude_subj))))
 #do dprime for each stimulus condition
 stim_dprimedf <- data.frame(matrix(ncol=4))
 colnames(stim_dprimedf) <- c('subjID','hr','fa','retrieval')
@@ -308,7 +311,7 @@ stim_dprimedf %>% group_by(retrieval) %>% summarise_at(vars(fa),list(fa_mean=mea
   ggplot(aes(x=retrieval,y=fa_mean,fill=retrieval))+
   geom_bar(stat="identity")+geom_errorbar(aes(ymin=fa_mean-fa_sd,ymax=fa_mean+fa_sd),width=.2)+
   ggtitle('fa retreived vs not retreived stimuli')
-print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$fa[stim_dprimedf$retrieval=='retrieved'],paired=TRUE))
+print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dprimedf$fa[stim_dprimedf$retrieval=='retrieved'],paired=TRUE,alternative='less'))
 ```
 
 
@@ -317,16 +320,6 @@ print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dpr
 
 ```{r beh-vividness correlation set up, echo=FALSE, message=FALSE, warning=FALSE}
 #my first thought is that FA and vividness are correlated
-meanVVIQ <- VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(mean=mean))
-dprimedf <- mutate(dprimedf,VVIQ=meanVVIQ$mean)
-
-#this seems backwards
-#cor.test(dprimedf$fa,dprimedf$VVIQ,method='pearson')
-dprimedf %>% ggscatter(x='fa',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='FA-VVIQ score correlation')
-
-#this is a little more reasonable
-#cor.test(dprimedf$dprime,dprimedf$VVIQ,method='pearson')
-dprimedf %>% ggscatter(x='dprime',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='dprime-VVIQ score correlation')
 
 #lets try removing the middle subjects
 label_VVIQ <- function(VVIQ)
@@ -340,8 +333,19 @@ label_VVIQ <- function(VVIQ)
   }
   return(ret)
 }
+
+meanVVIQ <- VVIQdf %>% group_by(subjID) %>% summarise_at(vars(response),list(mean=mean))
+dprimedf <- mutate(dprimedf,VVIQ=meanVVIQ$mean)
 dprimedf <- mutate(dprimedf,VVIQ_group=as.factor(unlist(lapply(dprimedf$VVIQ,label_VVIQ))))
 dprimedf <- dprimedf[dprimedf$subjID %!in% exclude_subj,]
+
+#this seems backwards
+#cor.test(dprimedf$fa,dprimedf$VVIQ,method='pearson')
+dprimedf[dprimedf$VVIQ_group!='low',] %>% ggscatter(x='fa',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='FA-VVIQ score correlation')
+
+#this is a little more reasonable
+#cor.test(dprimedf$dprime,dprimedf$VVIQ,method='pearson')
+dprimedf[dprimedf$VVIQ_group!='low',] %>% ggscatter(x='dprime',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='dprime-VVIQ score correlation')
 ```
 
 ```{r beh-vividness correlation plotting, echo=FALSE, message=FALSE, warning=FALSE}
@@ -441,9 +445,9 @@ print(t.test(stim_dprimedf$fa[stim_dprimedf$retrieval=='not retrieved'],stim_dpr
 
 
 #check difference between ret vs not ret
-dprimedf %>% ggscatter(x='fadiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='FA-VVIQ score correlation')
+dprimedf[dprimedf$VVIQ_group!='low',] %>% ggscatter(x='fadiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='FA-VVIQ score correlation')
 
-dprimedf %>% ggscatter(x='ddiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='dprime-VVIQ score correlation')
+dprimedf[dprimedf$VVIQ_group!='low',] %>% ggscatter(x='ddiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='dprime-VVIQ score correlation')
 
-dprimedf %>% ggscatter(x='hrdiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='HR-VVIQ score correlation')
+dprimedf[dprimedf$VVIQ_group!='low',] %>% ggscatter(x='hrdiff',y='VVIQ',add='reg.line',cor.coef=TRUE,cor.method='pearson',title='HR-VVIQ score correlation')
 ```
